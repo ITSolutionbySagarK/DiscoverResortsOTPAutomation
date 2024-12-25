@@ -3,7 +3,18 @@ import azure.functions as func
 from crud_operations.db_connection import get_db_connection
 from atomberg_locks.lock_functions import generate_otp_lock
 from datetime import datetime
+from otp_notifications.sendnotifications import send_whatsapp_notification,send_sms_notification
+import json
+import pytz
 
+def formatdatetime(datetime_str):
+    return datetime.strptime(datetime_str[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=pytz.UTC).astimezone(pytz.timezone("Asia/Kolkata")).strftime("%d %b %Y, %I:%M %p").lower().replace("pm", "p.m.").replace("am", "a.m.")
+def call_send_notifications(data):
+    for item in data:
+        send_whatsapp_notification(json.dumps(item))
+        send_sms_notification(json.dumps(item))
+   
+  
 def time_to_epoch(date_str, time_str):
     # Round the time to the nearest hour
     time_obj = datetime.strptime(time_str, "%H:%M:%S")
@@ -51,32 +62,29 @@ def extract_columns(data):
 def handle_hotel_guest_otp_crud(method, params, body):
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        
+
         if method == "GET":
             # Get filtering criteria from query parameters
-            created = params.get("created")  # specific day (YYYY-MM-DD)
-            start_date = params.get("start_date")  # date range start (YYYY-MM-DD)
-            end_date = params.get("end_date")  # date range end (YYYY-MM-DD)
-            current_day = params.get("current_day")  # flag to fetch today's records
-            
+            reservation_number = params.get("reservation_number")
+            guest_mobile_number = params.get("guest_mobile_number")
+            check_in_date_time = params.get("check_in_date_time")  # Specific date (YYYY-MM-DD)
+
+            # Base query
             query = "SELECT * FROM hotel_guest_otp_record WHERE 1=1"
             params_list = []
 
-            # Check if 'current_day' flag is passed to get today's records
-            if current_day and current_day.lower() == "true":
-                today = datetime.today().strftime('%Y-%m-%d')  # Get today's date in 'YYYY-MM-DD' format
+            # Apply filters
+            if reservation_number:
+                query += " AND reservation_number = ?"
+                params_list.append(reservation_number)
+
+            if guest_mobile_number:
+                query += " AND guest_mobile_number = ?"
+                params_list.append(guest_mobile_number)
+
+            if check_in_date_time:
                 query += " AND CAST(check_in_date_time AS DATE) = ?"
-                params_list.append(today)
-            
-            # If 'created' is passed to fetch records for a specific day
-            elif created:
-                query += " AND CAST(check_in_date_time AS DATE) = ?"
-                params_list.append(created)
-            
-            # If 'start_date' and 'end_date' are passed for a date range filter
-            elif start_date and end_date:
-                query += " AND CAST(check_in_date_time AS DATE) BETWEEN ? AND ?"
-                params_list.extend([start_date, end_date])
+                params_list.append(check_in_date_time)
 
             # Execute the query to get the total count of records (without pagination)
             cursor.execute(query, params_list)
@@ -98,7 +106,7 @@ def handle_hotel_guest_otp_crud(method, params, body):
             response_data = []
             for row in result:
                 row_dict = {columns[i]: row[i] for i in range(len(columns))}  # Create a dictionary with column names as keys
-                
+
                 # Convert datetime fields to string in 'YYYY-MM-DD HH:MM:SS' format
                 for key, value in row_dict.items():
                     if isinstance(value, datetime):
@@ -108,7 +116,7 @@ def handle_hotel_guest_otp_crud(method, params, body):
 
             # Format the result as JSON with pagination details
             return func.HttpResponse(
-                str({
+                json.dumps({
                     "data": response_data,
                     "page": page,
                     "page_size": page_size,
@@ -117,16 +125,16 @@ def handle_hotel_guest_otp_crud(method, params, body):
                 }),
                 mimetype="application/json"
             )
-        
         elif method == "POST":
             # Insert a new record (same as before)
             paramdata=extract_columns(body)
+            notificationData=[]
             for item in paramdata:  
                 hotel_code = item.get("hotel_code")
-                guest_name = item.get("guest_name")
+                guest_name = item.get("guest_name","")
                 room_no=item.get("room_no")
                 room_name=item.get("room_name")
-                reservation_number=item.get("reservation_number")
+                reservation_number=item.get("reservation_number","")
                 otp_status="OTP Generated"
                 guest_mobile_number = item.get("guest_mobile_number")
                 guest_email = item.get("guest_email")
@@ -134,14 +142,23 @@ def handle_hotel_guest_otp_crud(method, params, body):
                 check_out_date_time = item.get("check_out_date_time")
                 if room_no!=None:
                     generated_otp_object = generate_otp_lock(room_no,check_in_date_time,check_out_date_time)
-                    print(generated_otp_object)
                     if generated_otp_object!=None:
                         generated_otp=int(generated_otp_object['otp'])
                         otp_start_date_time = str(datetime.fromtimestamp(int(generated_otp_object['validStartTime'])).strftime("%Y-%m-%dT%H:%M:%S"))
                         otp_end_date_time = str(datetime.fromtimestamp(int(generated_otp_object['validEndTime'])).strftime("%Y-%m-%dT%H:%M:%S"))
                         check_in_date_time=str(datetime.fromtimestamp(int(check_in_date_time)).strftime("%Y-%m-%dT%H:%M:%S"))
                         check_out_date_time=str(datetime.fromtimestamp(int(check_out_date_time)).strftime("%Y-%m-%dT%H:%M:%S"))
-                        print(check_in_date_time,check_out_date_time)
+                        notificationData.append({
+                            "phoneNumber":guest_mobile_number,
+                            "bodyValues":[
+                                guest_name,
+                                reservation_number,
+                                room_no,
+                                generated_otp,
+                                formatdatetime(otp_start_date_time),
+                                formatdatetime(otp_end_date_time)
+                            ]
+                        })
                         cursor.execute("""INSERT INTO dbo.hotel_guest_otp_record (
                             hotel_code, 
                             guest_name, 
@@ -172,8 +189,9 @@ def handle_hotel_guest_otp_crud(method, params, body):
                          otp_status
                          ))
             conn.commit()
-                
+            call_send_notifications(notificationData)
             return func.HttpResponse(f"OTP record added successfully.") 
+            
         
         else:
             return func.HttpResponse("Unsupported HTTP method.", status_code=405)

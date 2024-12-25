@@ -2,7 +2,7 @@ import logging
 import azure.functions as func
 from crud_operations.hotel_guest_otp import handle_hotel_guest_otp_crud
 from atomberg_locks.lock_functions import generate_otp_lock
-from otp_notifications.sendnotifications import send_whatsapp_notification
+from otp_notifications.sendnotifications import send_whatsapp_notification,send_sms_notification
 
 # Initialize the FunctionApp
 app = func.FunctionApp()
@@ -52,7 +52,7 @@ def send_otp_notifications(req: func.HttpRequest) -> func.HttpResponse:
         body = req.get_json() if method in ["POST"] else None
         
         # Call the function that handles the logic for hotel_guest_otp
-        return send_whatsapp_notification(body)
+        return send_sms_notification(body)
      except Exception as e:
         logging.error(f"Error: {e}")
         return func.HttpResponse(f"An error occurred: {str(e)}", status_code=500)
