@@ -94,10 +94,14 @@ def handle_hotel_guest_otp_crud(method, params, body):
             reservation_number = params.get("reservation_number")
             guest_mobile_number = params.get("guest_mobile_number")
             check_in_date_time = params.get("check_in_date_time")  # Specific date (YYYY-MM-DD)
+            hotel_code=params.get("hotel_code")
 
             query = "SELECT * FROM hotel_guest_otp_record WHERE 1=1"
             params_list = []
 
+            if hotel_code:
+                query += " AND hotel_code = ?"
+                params_list.append(hotel_code)
             if reservation_number:
                 query += " AND reservation_number = ?"
                 params_list.append(reservation_number)
