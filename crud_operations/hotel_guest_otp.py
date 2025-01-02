@@ -1,6 +1,6 @@
 import logging
 import azure.functions as func
-from datetime import datetime
+from datetime import datetime,timedelta
 import pytz
 import json
 from crud_operations.db_connection import get_db_connection
@@ -23,14 +23,37 @@ def call_send_notifications(data):
         send_whatsapp_notification(json.dumps(item))
         send_sms_notification(json.dumps(item))
 
+def time_to_epoch(date_str, time_str, operation="default"):
+    """
+    Converts a date and time string to an epoch timestamp with an optional operation to add or subtract 1 hour.
+    
+    Parameters:
+        date_str (str): The input date as a string in the format 'YYYY-MM-DD'.
+        time_str (str): The input time as a string in the format 'HH:MM:SS'.
+        operation (str): The operation to perform - 'add', 'subtract', or 'default'. Default is 'default'.
+    
+    Returns:
+        int: The epoch timestamp of the modified (or unmodified) date and time.
+    """
+    try:
+        # Combine the date and time strings into a single datetime object
+        combined_datetime = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
+        logging.info(f"Combined datetime string: {combined_datetime}")
 
-def time_to_epoch(date_str, time_str):
-    """Converts a date and time string to an epoch timestamp."""
-    time_obj = datetime.strptime(time_str, "%H:%M:%S")
-    rounded_hour = time_obj.replace(minute=0, second=0)
-    combined = f"{date_str} {rounded_hour.strftime('%H:%M:%S')}"
-    return int(datetime.strptime(combined, "%Y-%m-%d %H:%M:%S").timestamp())
+        # Add or subtract 1 hour based on the operation
+        if operation == "add":
+            combined_datetime += timedelta(hours=1)
+        elif operation == "subtract":
+            combined_datetime -= timedelta(hours=1)
+        elif operation != "default":
+            raise ValueError("Invalid operation. Use 'add', 'subtract', or 'default'.")
 
+        # Convert to epoch timestamp
+        epoch_time = int(combined_datetime.timestamp())
+        return epoch_time
+    except Exception as e:
+        logging.error(f"Error in time_to_epoch: {e}")
+        raise
 
 def extract_columns(data):
     """Extracts columns from the provided data."""
@@ -58,9 +81,8 @@ def extract_columns(data):
                 check_out_date = booking_tran.get("End")
                 departure_time = booking_tran.get("DepartureTime", "00:00:00")
 
-                check_in_date_time = time_to_epoch(check_in_date, arrival_time)
-                check_out_date_time = time_to_epoch(check_out_date, departure_time)
-
+                check_in_date_time = time_to_epoch(check_in_date, arrival_time,"subtract")
+                check_out_date_time = time_to_epoch(check_out_date, departure_time,"add") 
                 for rental in booking_tran.get("RentalInfo", []):
                     room_no = rental.get("RoomName")
                     room_name = rental.get("RoomName")
