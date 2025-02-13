@@ -69,3 +69,25 @@ def send_otp_notifications(req: func.HttpRequest) -> func.HttpResponse:
     except Exception as e:
         logging.error(f'send_otp_notifications: Error occurred - {str(e)}', exc_info=True)
         return func.HttpResponse(f"An error occurred: {str(e)}", status_code=500)
+
+
+# @app.route(route="http_trigger", auth_level=func.AuthLevel.FUNCTION)
+# def http_trigger(req: func.HttpRequest) -> func.HttpResponse:
+#     logging.info('Python HTTP trigger function processed a request.')
+
+#     name = req.params.get('name')
+#     if not name:
+#         try:
+#             req_body = req.get_json()
+#         except ValueError:
+#             pass
+#         else:
+#             name = req_body.get('name')
+
+#     if name:
+#         return func.HttpResponse(f"Hello, {name}. This HTTP triggered function executed successfully.")
+#     else:
+#         return func.HttpResponse(
+#              "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response.",
+#              status_code=200
+#         )
