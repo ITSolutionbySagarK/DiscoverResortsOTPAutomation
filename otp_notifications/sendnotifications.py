@@ -116,17 +116,27 @@ Discover Resorts*
 
         # URL encode the message
         encoded_message = quote_plus(message)
-        payload = f"message={encoded_message}&language=english&route=q&numbers={phone_number}"
+        # payload = f"message={encoded_message}&language=english&route=q&numbers={phone_number}"
+        payload={
+        "route" : "dlt",
+        "sender_id" : "DISRST",
+        "message" : "177711",
+        "variables_values" : f"{otp} & Room No - {room_number}|",
+        "schedule_time" : "",
+        "flash" : 0,
+        "numbers" : f"{phone_number}"
+        }
+        logging.info(payload)
 
         headers = {
             'authorization': os.getenv("SMS_API_KEY"),
-            'Content-Type': "application/x-www-form-urlencoded",
+            "Content-Type":"application/json",
             'Cache-Control': "no-cache",
         }
 
         # Send the POST request
         url = "https://www.fast2sms.com/dev/bulkV2"
-        response = requests.post(url, data=payload, headers=headers)
+        response = requests.post(url, data=json.dumps(payload), headers=headers)
         logging.info(f"SMS API response: {response.status_code}, {response.text}")
 
         if response.status_code == 200:

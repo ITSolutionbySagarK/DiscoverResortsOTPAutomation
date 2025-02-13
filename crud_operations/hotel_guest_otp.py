@@ -194,7 +194,8 @@ def handle_hotel_guest_otp_crud(method, params, body):
                     logging.info(f"Generating OTP for room: {room_no}")
                     generated_otp_object = generate_otp_lock(room_no, check_in_date_time, check_out_date_time)
                     if generated_otp_object:
-                        generated_otp = int(generated_otp_object["otp"])
+                        generated_otp = f"{int(generated_otp_object["otp"])}#"
+                        print(generated_otp)
                         otp_start_date_time = datetime.fromtimestamp(int(generated_otp_object["validStartTime"])).strftime("%Y-%m-%dT%H:%M:%S")
                         otp_end_date_time = datetime.fromtimestamp(int(generated_otp_object["validEndTime"])).strftime("%Y-%m-%dT%H:%M:%S")
 
