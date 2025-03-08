@@ -41,10 +41,10 @@ def time_to_epoch(date_str, time_str, operation="default"):
         logging.info(f"Combined datetime string: {combined_datetime}")
 
         # Add or subtract 1 hour based on the operation
-        if operation == "add":
-            combined_datetime += timedelta(hours=1)
-        elif operation == "subtract":
-            combined_datetime -= timedelta(hours=1)
+        if operation == "checkout":
+            combined_datetime -= timedelta(hours=5)
+        elif operation == "checkin":
+            combined_datetime -= timedelta(hours=6)
         elif operation != "default":
             raise ValueError("Invalid operation. Use 'add', 'subtract', or 'default'.")
 
@@ -81,8 +81,8 @@ def extract_columns(data):
                 check_out_date = booking_tran.get("End")
                 departure_time = booking_tran.get("DepartureTime", "00:00:00")
 
-                check_in_date_time = time_to_epoch(check_in_date, arrival_time,"subtract")
-                check_out_date_time = time_to_epoch(check_out_date, departure_time,"add") 
+                check_in_date_time = time_to_epoch(check_in_date, arrival_time,"checkin")
+                check_out_date_time = time_to_epoch(check_out_date, departure_time,"checkout") 
                 for rental in booking_tran.get("RentalInfo", []):
                     room_no = rental.get("RoomName")
                     room_name = rental.get("RoomName")
